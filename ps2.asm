@@ -17576,29 +17576,30 @@ AddItemToInventory2:
 	rts
 
 
+; -----------------------------------------------------------------
 Scene_CheckRoutine:
 	tst.w	(Window_queue).w
-	bne.s	loc_AF02
+	bne.s	+
 	tst.w	(Window_index).w
-	bne.s	loc_AF02
+	bne.s	+
 	tst.w	(Script_flag).w
-	bne.s	loc_AF02
+	bne.s	+
 	move.w	(Window_routine_2).w, d1
-	bne.s	loc_AF04
+	bne.s	++
 	move.b	#GameModeID_Map, (Game_mode_index).w
-loc_AF02:
++
 	rts
 
-loc_AF04:
++
 	subq.w	#1, d1
-	bne.s	loc_AF1A
+	bne.s	+
 	move.w	(Portrait_index).w, d0
 	addi.w	#WinID_PortraitStart, d0
 	move.w	d0, (Window_queue).w
 	addq.w	#1, (Window_routine_2).w
 	rts
 
-loc_AF1A:
++
 	move.w	(Scene_index).w, d0
 	lsl.w	#2, d0
 	andi.w	#$7C, d0
@@ -17674,87 +17675,113 @@ loc_AFE6:
 	bra.w	CloseAllWindows
 ; ------------------------------------------
 
+
+; -----------------------------------------------------------------
 Scene_RolfHouse:
 	lsl.w	#2, d1
 	andi.w	#$3C, d1
 	jmp	RolfHouse_EventIndex-4(pc,d1.w)
-; ------------------------------------------
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
 RolfHouse_EventIndex:
-	bra.w	loc_B04E
-	bra.w	loc_B0A6
-	bra.w	loc_B0B2
-	bra.w	loc_B0DA
-	bra.w	loc_B0EC
-	bra.w	loc_B282
-	bra.w	loc_B2EC
-	bra.w	loc_B306
-	bra.w	loc_B350
-	bra.w	loc_B35C
-	bra.w	loc_B398
-; ------------------------------------------
-loc_B04E:
+	bra.w	RolfHouse_Init
+	bra.w	RolfHouse_YesNoWindow
+	bra.w	RolfHouse_StayOrLeave
+	bra.w	RolfHouse_OpenOptions
+	bra.w	RolfHouse_Options
+	bra.w	RolfHouse_NewCharacter
+	bra.w	RolfHouse_CheckRename
+	bra.w	RolfHouse_RenameOrNot
+	bra.w	RolfHouse_OpenNameWindow
+	bra.w	RolfHouse_ProcessName
+	bra.w	RolfHouse_BackToOptions
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_Init:
 	move.w	(Party_members_joined).w, d0
 	cmp.w	(Party_member_join_next).w, d0
-	bne.s	loc_B082
+	bne.s	+
 	move.w	#8, (Character_index).w
 	move.w	#WinID_ScriptMessageBig, (Window_queue).w
 	move.w	#$908, (Script_queue).w		; "Ahh, home at last. But there's no time to relax! Before you go out again, you'd better check your companions."
 	move.w	(Party_members_num).w, d0
 	addi.w	#$92A, d0
-	move.w	d0, ($FFFFCD02).w
+	move.w	d0, (Script_queue+2).w
 	move.w	#$92E, (Script_queue+4).w
-	addq.w	#1, (Window_routine_2).w
+	addq.w	#1, (Window_routine_2).w	; => RolfHouse_YesNoWindow
 	rts
 
-loc_B082:
++
 	move.w	#WinID_ScriptMessageBig, (Window_queue).w
 	move.w	#$927, (Script_queue).w		; "Hey,Shir is coming back!"
 	cmpi.w	#8, (Party_member_join_next).w
-	beq.s	loc_B0A0
+	beq.s	+
 	addq.w	#1, (Party_members_joined).w
 	move.w	#$90C, (Script_queue).w		; "There's a knock at the door!"
-loc_B0A0:
-	addq.w	#5, (Window_routine_2).w
++
+	addq.w	#5, (Window_routine_2).w	; => RolfHouse_NewCharacter
 	rts
-; ------------------------------------------
-loc_B0A6:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_YesNoWindow:
 	move.w	#WinID_YesNo3, (Window_queue).w
-	addq.w	#1, (Window_routine_2).w
+	addq.w	#1, (Window_routine_2).w	; => RolfHouse_StayOrLeave
 	rts
-; ------------------------------------------
-loc_B0B2:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_StayOrLeave:
 	tst.w	(Window_routine_3).w
 	bne.w	CloseAllWindows
 	move.w	(Yes_no_input).w, d0
-	beq.s	loc_B0CE
+	beq.s	RolfHouse_Exit
 	move.l	#$90A090B, (Script_queue).w
-	addq.w	#1, (Window_routine_2).w
+	addq.w	#1, (Window_routine_2).w	; => RolfHouse_OpenOptions
 	rts
 
-loc_B0CE:
+RolfHouse_Exit:
 	move.w	#$909, (Script_queue).w
 	addq.w	#1, (Window_routine_3).w
 	rts
-; ------------------------------------------
-loc_B0DA:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_OpenOptions:
 	tst.w	(Script_queue).w
-	bne.s	loc_B0EA
+	bne.s	+
 	move.w	#WinID_RolfHouseOptions, (Window_queue).w
-	addq.w	#1, (Window_routine_2).w
-loc_B0EA:
+	addq.w	#1, (Window_routine_2).w	; => RolfHouse_Options
++
 	rts
-; ------------------------------------------
-loc_B0EC:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_Options:
 	move.w	($FFFFDEC4).w, d0
 	lsl.w	#2, d0
 	andi.w	#$C, d0
 	jmp	RolfHouse_OptionIndex(pc,d0.w)
-; -----------------------------------------
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
 RolfHouse_OptionIndex:
 	bra.w	RolfHouseOption_SeeStrength
 	bra.w	RolfHouseOption_Reorganize
 	bra.w	RolfHouseOption_Outside
-; -----------------------------------------
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
 RolfHouseOption_SeeStrength:
 	move.w	(Window_routine_3).w, d1
 	bne.s	loc_B118
@@ -17793,7 +17820,10 @@ loc_B172:
 	subq.w	#2, (Window_routine_3).w
 	move.w	#$8004, d1
 	bra.w	Win_Close
-; -----------------------------------------
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
 RolfHouseOption_Reorganize:
 	move.w	(Window_routine_3).w, d1
 	bne.s	loc_B1A0
@@ -17865,17 +17895,23 @@ loc_B25C:
 	beq.s	loc_B26E
 	subq.w	#2, (Window_routine_2).w
 	subq.w	#4, (Window_routine_3).w
-	bra.w	loc_B0CE
+	bra.w	RolfHouse_Exit
 loc_B26E:
 	move.w	#((6<<8)|WinID_RegroupCharList), (Window_queue).w
 	subq.w	#2, (Window_routine_3).w
 	rts
-; -----------------------------------------
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
 RolfHouseOption_Outside:
 	subq.w	#2, (Window_routine_2).w
-	bra.w	loc_B0CE
-; -----------------------------------------
-loc_B282:
+	bra.w	RolfHouse_Exit
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_NewCharacter:
 	move.w	#CharID_Rolf, (Character_index).w
 	move.w	(Party_members_joined).w, d0
 	move.w	d0, (Portrait_index).w
@@ -17886,7 +17922,7 @@ loc_B282:
 	move	#$2500, sr
 	addq.w	#1, (Window_routine_2).w
 	cmpi.w	#8, (Party_member_join_next).w
-	beq.s	loc_B2C8
+	beq.s	+
 	move.w	(Party_members_joined).w, d0
 	lea	(RolfHouse_CharIntroTextPtrs-2).l, a0
 	adda.w	d0, a0
@@ -17894,7 +17930,7 @@ loc_B282:
 	move.b	(a0), d0
 	move.w	d0, (Script_queue).w
 	rts
-loc_B2C8:
++
 	subq.w	#1, (Party_member_join_next).w
 	addq.w	#1, (Party_members_num).w
 	lea	(Party_member_ID).w, a1
@@ -17904,26 +17940,32 @@ loc_B2C8:
 	move.w	#$928, (Script_queue).w
 	addq.w	#1, (Window_routine_3).w
 	rts
-; ------------------------------------------
-loc_B2EC:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_CheckRename:
 	tst.w	(Script_queue).w
-	bne.s	loc_B304
+	bne.s	+
 	tst.w	(Window_routine_3).w
 	bne.w	CloseAllWindows
 	move.w	#WinID_YesNo3, (Window_queue).w
 	addq.w	#1, (Window_routine_2).w
-loc_B304:
++
 	rts
-; ------------------------------------------
-loc_B306:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_RenameOrNot:
 	move.w	(Party_members_joined).w, d0
 	move.w	d0, (Character_index).w
 	move.w	(Yes_no_input).w, d0
-	beq.s	loc_B322
+	beq.s	+
 	move.l	#$913090E, (Script_queue).w
 	addq.w	#3, (Window_routine_2).w
 	rts
-loc_B322:
++
 	addq.w	#1, (Window_routine_2).w
 	move.w	(Party_members_joined).w, d1
 	lea	(RolfHouse_CharNameChangeTextPtrs-2).l, a0
@@ -17932,50 +17974,64 @@ loc_B322:
 	move.b	(a0), d0
 	move.w	d0, (Script_queue).w
 	cmpi.w	#7, d1
-	bne.s	loc_B34E
+	bne.s	+
 	move.l	#$91B090E, ($FFFFCD02).w
 	addq.w	#2, (Window_routine_2).w
-loc_B34E:
++
 	rts
-; ------------------------------------------
-loc_B350:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_OpenNameWindow:
 	move.w	#WinID_NameInput, (Window_queue).w
 	addq.w	#1, (Window_routine_2).w
 	rts
-; ------------------------------------------
-loc_B35C:
-	bsr.s	loc_B36C
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_ProcessName:
+	bsr.s	ProcessNameInput
 	move.l	#$91A090E, (Script_queue).w
 	addq.w	#1, (Window_routine_2).w
 	rts
-loc_B36C:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+ProcessNameInput:
 	lea	(Window_name_input_string).w, a0
 	moveq	#3, d1
-loc_B372:
+.b1:
 	tst.b	(a0)
-	beq.s	loc_B37C
+	beq.s	.f1
 	cmpi.b	#$C4, (a0)
-	bne.s	loc_B384
-loc_B37C:
+	bne.s	.f2	; branch if there's at least one character in the input name
+.f1:
 	addq.w	#1, a0
-	dbf	d1, loc_B372
-	bra.s	loc_B394
-loc_B384:
+	dbf	d1, .b1
+	bra.s	.f3	; if we reached the end of the loop, set default name
+.f2:
 	lea	(Character_names).w, a2
 	move.w	(Character_index).w, d0
 	lsl.w	#2, d0
 	adda.w	d0, a2
 	move.l	(Window_name_input_string).w, (a2)
-loc_B394:
+.f3:
 	bra.w	SetCharNames
-; ------------------------------------------
-loc_B398:
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
+RolfHouse_BackToOptions:
 	move.w	#$8001, (Window_queue).w
 	subq.w	#7, (Window_routine_2).w
 	rts
-; ------------------------------------------
+; -----------------------------------------------------------------
 
-; ===============================
+
+; =================================================================
 RolfHouse_CharIntroTextPtrs:
 	dc.b	$1C
 	dc.b	$1E
@@ -17983,10 +18039,10 @@ RolfHouse_CharIntroTextPtrs:
 	dc.b	$21
 	dc.b	$23
 	dc.b	$25
-; ===============================
+; =================================================================
 
 
-; ===============================
+; =================================================================
 RolfHouse_CharNameChangeTextPtrs:
 	dc.b	$16
 	dc.b	$17
@@ -17994,13 +18050,14 @@ RolfHouse_CharNameChangeTextPtrs:
 	dc.b	$17
 	dc.b	$18
 	dc.b	$19
-; ===============================
+; =================================================================
 
 
+; -----------------------------------------------------------------
 SetCharNames:
 	lea	(Character_names).w, a1		; Character names
 	moveq	#0, d1
-	moveq	#(CharNamesEnd-CharNames)/CharNameLength-1, d0			; Loop for each character
+	moveq	#7, d0			; Loop for each character
 -
 	move.w	d1, d2
 	lea	(Character_stats+name).w, a2
@@ -18026,6 +18083,7 @@ SetCharNames:
 	move.b	(a4), (a2)
 	subq.w	#3, a2
 	rts
+; -----------------------------------------------------------------
 
 
 Scene_DataMemory:
@@ -21053,7 +21111,7 @@ loc_D362:
 	rts
 loc_D36E:
 	move.w	#0, (Character_index).w
-	bsr.w	loc_B36C
+	bsr.w	ProcessNameInput
 	move.w	#$1304, (Script_queue).w
 	addq.w	#1, (Window_routine_2).w
 	rts
