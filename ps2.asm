@@ -6079,7 +6079,6 @@ loc_36B0:
 ; --------------------------------------------------------------
 ; Object - Character Sprites in the map
 ; --------------------------------------------------------------
-
 Obj_MapCharacter:
 	tst.w	(Map_index).w
 	bne.s	+
@@ -6094,6 +6093,8 @@ Obj_MapCharacter:
 +
 	move.b	#2, render_flags(a0)
 	rts
+; --------------------------------------------------------------
+
 
 ; --------------------------------------------------------------
 MapCharacterRoutines:
@@ -6101,6 +6102,8 @@ MapCharacterRoutines:
 	bra.w	MapCharacter_Main
 ; --------------------------------------------------------------
 
+
+; --------------------------------------------------------------
 MapCharacter_Init:
 	addq.w	#8, x_pos(a0)
 	addq.w	#8, y_pos(a0)
@@ -6128,9 +6131,10 @@ loc_3746:
 	dbf	d0, loc_3746
 
 	rts
-
 ; --------------------------------------------------------------
 
+
+; --------------------------------------------------------------
 MapCharacter_Main:
 	cmpi.w	#MapID_Gaira, (Map_index).w
 	bne.s	+
@@ -6394,6 +6398,8 @@ loc_39D0:
 	move.w	#0, x_move_steps(a0)
 	move.w	#0, y_move_steps(a0)
 	rts
+; --------------------------------------------------------------
+
 
 ; =================================================================
 ; Sprite mappings index in the map
@@ -25926,7 +25932,7 @@ loc_1038A:
 	lea	($FFFFDEB6).w, a0
 	moveq	#0, d1
 	bra.w	loc_11028
-; -------------------------------------------
+; -----------------------------------------------------------------
 ; loc_10394
 Win_StoreMeseta:
 	lea	(Window_art_buffer+PlaneMap_WinMeseta-DynamicWindowsStart+$E).w, a1
@@ -25934,16 +25940,19 @@ Win_StoreMeseta:
 	bsr.w	DrawDec8Digits
 	move.w	#0, (Window_index).w
 	rts
-; -------------------------------------------
+; -----------------------------------------------------------------
+
+
+; -----------------------------------------------------------------
 ; loc_103A8
 Win_NameInput:
 	tst.b	d1
 	bne.s	Win_NameInputRoutine2
 	rts
-; -------------------------------------------
+; -----------------------------------------------------------------
 
 
-; -------------------------------------------
+; -----------------------------------------------------------------
 Win_NameInputRoutine2:
 	subq.w	#1, d1
 	bne.s	Win_NameInputRoutine3
@@ -25961,16 +25970,16 @@ Win_NameInputRoutine2:
 	move.w	#0, (Window_name_input_cursor_pos).w
 	move.l	#0, (Window_name_input_string).w
 	rts
-; -------------------------------------------
+; -----------------------------------------------------------------
 
 
-; -------------------------------------------
+; -----------------------------------------------------------------
 Win_NameInputRoutine3:
 	move.b	(Joypad_pressed).w, d2
 	andi.b	#Button_B_Mask|Button_C_Mask, d2
-	bne.s	loc_103FA
+	bne.s	.f1
 	rts
-loc_103FA:
+.f1:
 	move.b	#SFXID_Selection, (Sound_queue).w
 	lea	(Window_name_input_string).w, a0
 	move.w	(Window_name_input_cursor_pos).w, d0
@@ -25980,19 +25989,19 @@ loc_103FA:
 	lea	(InputCharacterMap).l, a1
 	adda.w	(Window_options).w, a1
 	moveq	#0, d1
-	move.b	(a1), d1
+	move.b	(a1), d1	; d1 = character
 	andi.b	#Button_B_Mask, d2
-	bne.s	loc_10430
+	bne.s	.f2
 	cmpi.b	#$A3, d1
-	beq.s	loc_1047A
+	beq.s	.f4		; branch if we picked the ADVANCE character
 	cmpi.b	#$A4, d1
-	bne.s	loc_10432
-loc_10430:
+	bne.s	.f3		; branch if we didn't pick the DELETE character
+.f2:
 	moveq	#0, d1
-loc_10432:
+.f3:
 	cmpi.b	#$C4, d1
-	beq.s	loc_10494
-	move.b	d1, (a0)
+	beq.s	.f7	; if it's the END character, branch and process name
+	move.b	d1, (a0)	; update string
 	lea	(VDP_control_port).l, a2
 	lea	(VDP_data_port).l, a3
 	move.w	d1, d2
@@ -26000,48 +26009,52 @@ loc_10432:
 	lea	(VDPCharacterMaps).l, a4
 	adda.w	d2, a4
 	move.w	#$8500, d3
-	move	#$2700, sr
+	move	#$2700, sr	; disable interrupts
+	move.w	d0, (a2)	; write to Control Port
+	move.w	#3, (a2)
+	move.b	(a4)+, d3	; get character
+	move.w	d3, (a3)
+	addi.w	#$80, d0	; next row
 	move.w	d0, (a2)
 	move.w	#3, (a2)
-	move.b	(a4)+, d3
+	move.b	(a4), d3	; get character
 	move.w	d3, (a3)
-	addi.w	#$80, d0
-	move.w	d0, (a2)
-	move.w	#3, (a2)
-	move.b	(a4), d3
-	move.w	d3, (a3)
-	move	#$2500, sr
+	move	#$2500, sr	; enable V-int
 	tst.b	d1
-	beq.s	loc_10488
-loc_1047A:
+	beq.s	.f5	; if d1 is 0, go back one space
+.f4:
 	cmpi.w	#3, (Window_name_input_cursor_pos).w
-	beq.s	loc_10492
+	beq.s	.f6
 	addq.w	#1, (Window_name_input_cursor_pos).w
 	rts
-loc_10488:
+.f5:
 	tst.w	(Window_name_input_cursor_pos).w
-	beq.s	loc_10492
+	beq.s	.f6
 	subq.w	#1, (Window_name_input_cursor_pos).w
-loc_10492:
+.f6:
 	rts
-loc_10494:
-	lea	($FFFFC63F).w, a0
+
+; process input string
+.f7:
+	lea	(Window_name_input_string+3).w, a0	; end of input string
 	tst.b	(a0)
-	bne.s	loc_104AC
-	moveq	#3, d0
-loc_1049E:
+	bne.s	.f9	; skip if there's a character at the end
+	moveq	#3, d0	; otherwise find the last character and put the terminator ($C4) after it
+.b1:
 	tst.b	(a0)
-	bne.s	loc_104A8
+	bne.s	.f8
 	subq.w	#1, a0
-	dbf	d0, loc_1049E
-loc_104A8:
+	dbf	d0, .b1
+.f8:
 	addq.w	#1, a0
-	move.b	d1, (a0)
-loc_104AC:
+	move.b	d1, (a0)	; put the terminator 
+.f9:
 	move.w	#0, (Window_index).w
-	move.w	#$8001, (Window_queue).w	; close one window
+	move.w	#$8001, (Window_queue).w	; close window
 	rts
-; --------------------------------------
+; -----------------------------------------------------------------
+
+; -----------------------------------------------------------------
 ; loc_104BA
 Win_SaveSlots:
 	tst.b	d1
