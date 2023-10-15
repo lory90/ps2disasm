@@ -5672,8 +5672,9 @@ loc_3276:
 ; ---------------------------------------------------------------
 
 
+; ---------------------------------------------------------------
 Battle_AnimateSprites:
-	subq.w	#1, $26(a0)
+	subq.w	#1, anim_frame_timer(a0)
 	bpl.s	loc_32C0
 	move.w	$28(a0), $26(a0)
 	move.w	$16(a0), d1
@@ -5901,8 +5902,10 @@ loc_34E0:
 	dbf	d2, loc_3484
 
 	rts
+; ---------------------------------------------------------------
 
-; =============================================
+
+; ===============================================================
 loc_34EE:
 	dc.b	$41
 	dc.b	$42
@@ -5932,8 +5935,10 @@ loc_34EE:
 	dc.b	$38
 	dc.b	$38
 	dc.b	$38
-; =============================================
+; ===============================================================
 
+
+; ---------------------------------------------------------------
 loc_350A:
 	cmpi.b	#$F8, d0
 	bne.s	loc_3520
@@ -11955,7 +11960,7 @@ loc_73C0:
 	dbf	d6, -
 
 	lea	(RAM_start&$FFFFFF).l, a4
-	lea	(Art_TitleWomen).l, a0
+	lea	(Art_TitleMotherBrain).l, a0
 	bsr.w	DecompressToRAM
 	move.w	(VDP_reg1_values).w, d0	; VDP reg #1 values
 	ori.b	#$40, d0				; enable display
@@ -63368,7 +63373,7 @@ Art_TitleBG:	binclude "graphics/title/Background.bin"
 Art_TitleCopyright:	binclude "graphics/title/Copyright.bin"
 	even
 
-Art_TitleWomen:	binclude "graphics/title/Women.bin"
+Art_TitleMotherBrain:	binclude "graphics/title/Mother Brain.bin"
 	even
 
 Art_TitlePSLogo:	binclude "graphics/title/Phantasy Star logo.bin"
