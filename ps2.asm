@@ -3595,12 +3595,12 @@ loc_1D34:
 	jmp	BattleCharacterCommands(pc,d0.w)
 ; ---------------------------------------------------------------
 BattleCharacterCommands:
-	bra.w	Character_DoAttack
-	bra.w	Character_DoTechnique
-	bra.w	Character_DoItem
-	bra.w	Character_DoDefense
+	bra.w	Character_SetupAttack
+	bra.w	Character_SetupTechnique
+	bra.w	Character_SetupItem
+	bra.w	Character_SetupDefense
 ; ---------------------------------------------------------------
-Character_DoAttack:
+Character_SetupAttack:
 	lea	(Character_stats).w, a3
 	move.w	fighter_id(a0), d0
 	lsl.w	#6, d0
@@ -3786,7 +3786,7 @@ loc_1F62:
 	bclr	#0, battle_status(a0)
 	rts
 ; ---------------------------------------------------------------
-Character_DoTechnique:
+Character_SetupTechnique:
 	_btst	#2, 0(a3)
 	bne.w	loc_1FEA
 	move.w	(a5)+, d3
@@ -4317,7 +4317,7 @@ loc_2540:
 	move.w	#2, $22(a0)
 	rts
 ; ---------------------------------------------------------------
-Character_DoItem:
+Character_SetupItem:
 	move.w	(a5)+, d0
 	move.b	d0, (Item_index).w
 	move.w	d0, d2
@@ -4436,7 +4436,7 @@ ItemUsed_FireStaff:
 	moveq	#TechID_Foi, d3
 	bra.w	ProcessTechnique
 ; ---------------------------------------------------------------
-Character_DoDefense:
+Character_SetupDefense:
 	lea	(Character_stats).w, a3
 	move.w	$36(a0), d0
 	lsl.w	#6, d0
@@ -5675,158 +5675,180 @@ loc_3276:
 ; ---------------------------------------------------------------
 Battle_AnimateSprites:
 	subq.w	#1, anim_frame_timer(a0)
-	bpl.s	loc_32C0
-	move.w	$28(a0), $26(a0)
-	move.w	$16(a0), d1
+	bpl.s	+
+	move.w	anim_timer_start(a0), anim_frame_timer(a0)
+	move.w	battle_anim(a0), d1
 	movea.l	a1, a2
 	add.w	d1, d1
 	adda.w	d1, a2
 	adda.w	(a2), a1
 	moveq	#0, d1
-	move.b	(a1), d1				; start of the animation
-	adda.w	$1A(a0), a1				; animation offset
-	addq.w	#1, $1A(a0)				; proceed to next animation frame
+	move.b	(a1), d1					; start of the animation
+	adda.w	battle_anim_frame(a0), a1	; animation frame offset
+	addq.w	#1, battle_anim_frame(a0)	; increment animation frame
 	moveq	#0, d0
-	move.b	(a1), d0				; get animation to run
-	bmi.s	loc_32C2			; branch if we completed an action (like animation before attacking or before casting tech, etc...)
-loc_32AC:
-	bset	#1, 2(a0)
+	move.b	(a1), d0				; get animation frame
+	bmi.s	BattleAnimSprites_CheckActionEnd			; branch and check control code
+BattleAnimSprites_CheckRender:
+	bset	#1, render_flags(a0)	; default to no sprite rendering
 	subq.w	#1, d0
-	bcs.s	loc_32C0			; return if there are no sprite mappings to run
-	bclr	#1, 2(a0)
-	move.w	d0, $24(a0)				; run sprite mappings
-loc_32C0:
+	bcs.s	+			; return if there are no sprite mappings to run
+	bclr	#1, render_flags(a0)	; render sprites
+	move.w	d0, mapping_frame(a0)				; run sprite mappings
++
 	rts
+; ---------------------------------------------------------------
 
-loc_32C2:
+
+; ---------------------------------------------------------------
+BattleAnimSprites_CheckActionEnd:
 	cmpi.b	#$FF, d0
-	bne.s	loc_32EE			; branch if we're not done with the animation
-	move.w	#0, $1A(a0)				; reset animation frame
-	btst	#0, 3(a0)
-	beq.s	loc_32E2
+	bne.s	BatteAnimSprites_CheckDelete
+	; $FF = end action if we're attacking; if we're not attacking, set to first animation frame
+	move.w	#0, battle_anim_frame(a0)				; reset animation frame
+	btst	#0, battle_status(a0)
+	beq.s	+
 	subq.w	#1, (Fight_action_steps).w
-	bclr	#0, 3(a0)
-loc_32E0:
+	bclr	#0, battle_status(a0)
+-
 	rts
 
-loc_32E2:
++
 	tst.b	d1
-	bmi.s	loc_32E0
-	addq.w	#1, $1A(a0)
+	bmi.s	-
+	addq.w	#1, battle_anim_frame(a0)
 	move.w	d1, d0
-	bra.s	loc_32AC
+	bra.s	BattleAnimSprites_CheckRender
+; ---------------------------------------------------------------
 
-loc_32EE:
+
+; ---------------------------------------------------------------
+BatteAnimSprites_CheckDelete:
 	cmpi.b	#$FE, d0
-	bne.s	loc_3300
+	bne.s	BatteAnimSprites_CheckTargetHit
+	; $FE = delete object
 	move.b	#1, render_flags(a0)	; bit 0 set = delete object
 	subq.w	#1, (Fight_action_steps).w
 	rts
+; ---------------------------------------------------------------
 
-loc_3300:
+
+; ---------------------------------------------------------------
+BatteAnimSprites_CheckTargetHit:
 	cmpi.b	#$FD, d0
-	bne.w	loc_338E
-
-loc_3308:
+	bne.w	BattleAnimSprites_CheckLoadLongRange
+	; $FD = hit target
+BatteAnimSprites_TargetHit:
 	lea	(Characters_RAM).w, a2
-	move.w	$2C(a0), d0
+	move.w	battle_target(a0), d0
 	lsl.w	#7, d0
 	adda.w	d0, a2
 	tst.w	(a2)
-	beq.s	loc_338C
-	btst	#7, 3(a2)
-	beq.s	loc_338C
-	bset	#6, 3(a2)
-	bne.s	loc_3386
-	move.b	#SFXID_Sword, (Sound_queue).w	; this is the generic sound when characters/enemies get hurt
-	move.w	#$30, $30(a2)
+	beq.s	.f5	; return if target is dead
+	btst	#7, battle_status(a2)
+	beq.s	.f5	; return if is-target flag is not set
+	bset	#6, battle_status(a2)	; set is-hit flag
+	bne.s	.f4
+	move.b	#SFXID_Sword, (Sound_queue).w
+	move.w	#$30, hit_timer(a2)
 	addq.w	#1, (Fight_action_steps).w
 	lea	(Window_queue).w, a1
 	move.w	(Battle_command_used).w, d0
-	bmi.s	loc_3386
-	beq.s	loc_3358		; branch if we are attacking
+	bmi.s	.f4
+	beq.s	.f2		; branch if we are attacking
 	cmpi.w	#3, d0
-	beq.s	loc_3358		;  branch if we are defending
+	beq.s	.f2		;  branch if we are defending
 	move.w	#WinID_BattleItemUsed, d1
 	subq.w	#1, d0
-	bne.s	loc_3356		; branch if we are using an item
+	bne.s	.f1		; branch if we are using an item
 	move.w	#WinID_BattleTechUsed, d1
-loc_3356:
+.f1:
 	move.w	d1, (a1)+
-loc_3358:
+.f2:
 	move.l	#((6<<$18)|(WinID_BattleFirstCharStats<<$10)|(6<<8)|WinID_BattleSecondCharStats), (a1)+		; it's basically "move.l	#$065C065D, (a1)+"
 	move.l	#((6<<$18)|(WinID_BattleThirdCharStats<<$10)|(6<<8)|WinID_BattleFourthCharStats), (a1)+		; it's basically "move.l	#$065E065F, (a1)+"
 	cmpi.w	#$102, (Enemy_formation).w
-	bcc.s	loc_3372			; branch if in Dark Force or Mother Brain boss battle
+	bcc.s	.f3			; branch if in Dark Force or Mother Brain boss battle
 	move.l	#((6<<$18)|(WinID_FirstEnemyInfo<<$10)|(6<<8)|WinID_SecondEnemyInfo), (a1)+	; it's basically "move.l	#$066C066D, (a1)+"
-loc_3372:
+.f3:
 	move.w	#$FFFF, (Battle_command_used).w
 	move.w	(Battle_script_ID).w, d0
-	beq.s	loc_3386
+	beq.s	.f4
 	move.w	#WinID_BattleMessage, (a1)+
 	move.w	d0, (Script_queue).w
-loc_3386:
+.f4:
 	move.w	#0, (Battle_script_ID).w
-loc_338C:
+.f5:
 	rts
+; ---------------------------------------------------------------
 
-loc_338E:
+
+; ---------------------------------------------------------------
+BattleAnimSprites_CheckLoadLongRange:
 	cmpi.b	#$FC, d0
-	bne.s	loc_33BE
+	bne.s	BattleAnimSprites_CheckMultipleTargets
+	; $FC = Load long range attack
 	lea	(Characters_RAM).w, a2
-	move.w	$2C(a0), d0
+	move.w	battle_target(a0), d0
 	lsl.w	#7, d0
 	adda.w	d0, a2
 	tst.w	(a2)
-	beq.s	loc_33B8
-	move.w	$36(a2), d0
-	cmp.w	$36(a0), d0
-	bne.s	loc_33B8
-	bsr.w	loc_3622
-	move.w	#1, $28(a3)
-loc_33B8:
-	addq.w	#1, $2C(a0)
+	beq.s	+
+	move.w	fighter_id(a2), d0
+	cmp.w	fighter_id(a0), d0
+	bne.s	+
+	bsr.w	Battle_LoadLongRangeAttack
+	move.w	#1, anim_timer_start(a3)
++
+	addq.w	#1, battle_target(a0)
 	rts
+; ---------------------------------------------------------------
 
-loc_33BE:
+
+; ---------------------------------------------------------------
+BattleAnimSprites_CheckMultipleTargets:
 	cmpi.b	#$FB, d0
 	bne.s	loc_3428
-	move.w	$2C(a0), d0
+	; $FB = Multiple targets
+	move.w	battle_target(a0), d0
 	cmpi.w	#8, d0
-	bcc.s	loc_33D4
+	bcc.s	.f1
 	moveq	#0, d0
-	move.w	d0, $2C(a0)
-loc_33D4:
+	move.w	d0, battle_target(a0)
+.f1:
 	lea	(Characters_RAM).w, a2
 	lsl.w	#7, d0
 	adda.w	d0, a2
 	moveq	#7, d2
 	cmpi.b	#TechID_Megid, (Technique_index).w
-	bne.s	loc_33E8
+	bne.s	.fb1
 	moveq	#$F, d2
-loc_33E8:
+.fb1:
 	tst.w	(a2)
-	beq.s	loc_341A
-	btst	#7, 3(a2)
-	beq.s	loc_341A
-	bsr.w	loc_3622
+	beq.s	.f3
+	btst	#7, battle_status(a2)
+	beq.s	.f3
+	bsr.w	Battle_LoadLongRangeAttack
 	move.w	$3A(a0), d0
 	andi.w	#$7F, d0
 	cmpi.w	#$2B, d0
-	beq.s	loc_340C
+	beq.s	.f2
 	cmpi.w	#$2C, d0
-	bne.s	loc_341A
-loc_340C:
-	move.w	#$120, $A(a3)
-	move.w	#8, $2C(a3)
+	bne.s	.f3
+.f2:
+	move.w	#$120, x_pos(a3)
+	move.w	#8, battle_target(a3)
 	rts
-loc_341A:
-	addq.w	#1, $2C(a0)
+.f3:
+	addq.w	#1, battle_target(a0)
 	adda.w	#$80, a2
-	dbf	d2, loc_33E8
+	dbf	d2, .fb1
 
 	rts
+; ---------------------------------------------------------------
 
+
+; ---------------------------------------------------------------
 loc_3428:
 	cmpi.b	#$FA, d0
 	bne.s	loc_3462
@@ -5841,7 +5863,7 @@ loc_343C:
 	tst.w	$32(a2)
 	beq.s	loc_344E
 	subq.w	#1, $32(a2)
-	bra.w	loc_3622
+	bra.w	Battle_LoadLongRangeAttack
 loc_344E:
 	addq.w	#1, $2C(a0)
 	adda.w	#$80, a2
@@ -5868,7 +5890,7 @@ loc_3484:
 	beq.s	loc_34E0
 	btst	#7, 3(a2)
 	beq.s	loc_34E0
-	bsr.w	loc_3622
+	bsr.w	Battle_LoadLongRangeAttack
 	moveq	#0, d1
 	move.w	$A(a2), d0
 	cmpi.w	#$B0, d0
@@ -5944,7 +5966,7 @@ loc_350A:
 	bne.s	loc_3520
 	moveq	#7, d2
 loc_3512:
-	bsr.w	loc_3308
+	bsr.w	BatteAnimSprites_TargetHit
 	addq.w	#1, $2C(a0)
 	dbf	d2, loc_3512
 
@@ -6029,61 +6051,65 @@ loc_360A:
 	move.b	(Battle_saved_sound).w, (Sound_queue).w
 	rts
 
-loc_3622:
-	lea	($FFFFEC00).w, a3
+
+; ---------------------------------------------------------------
+Battle_LoadLongRangeAttack:
+	lea	(Object_RAM+$C00).w, a3
 	moveq	#$F, d1
-loc_3628:
+-
 	tst.w	(a3)
-	beq.s	loc_3636
+	beq.s	+
 	adda.w	#$40, a3
-	dbf	d1, loc_3628
+	dbf	d1, -
 
 	rts
 
-loc_3636:
-	move.w	#$B, (a3)
-	move.w	$A(a2), d0
++
+	move.w	#$B, (a3)	; Obj_BattleLongRangeAttack
+	move.w	x_pos(a2), d0	; target X position
 	subi.w	#$18, d0
-	move.w	d0, $A(a3)
-	move.w	#$C8, $E(a3)
-	move.w	$2C(a0), $2C(a3)
+	move.w	d0, x_pos(a3)
+	move.w	#$C8, y_pos(a3)
+	move.w	battle_target(a0), battle_target(a3)
 	_cmpi.w	#$F, 0(a0)
-	bcc.s	loc_368C
-	move.w	#$400, 8(a3)
+	bcc.s	++
+	move.w	#$400, art_tile(a3)
 	btst	#7, $3B(a0)
-	beq.s	loc_366E
-	move.w	#$2400, 8(a3)
-loc_366E:
+	beq.s	+
+	move.w	#$2400, art_tile(a3)
++
 	move.w	$3A(a0), d0
 	andi.w	#$7F, d0
-	move.w	d0, $16(a3)
-	move.l	$3C(a0), 4(a3)
-	move.w	#2, $28(a3)
+	move.w	d0, battle_anim(a3)
+	move.l	$3C(a0), mappings(a3)
+	move.w	#2, anim_timer_start(a3)
 	addq.w	#1, (Fight_action_steps).w
 	rts
-loc_368C:
-	move.w	#$12, (a3)
-	move.w	8(a0), 8(a3)
-	move.w	$16(a0), d0
++
+	move.w	#$12, (a3)	; Obj_EnemySkill2
+	move.w	art_tile(a0), art_tile(a3)
+	move.w	battle_anim(a0), d0
 	cmpi.w	#$40, d0
-	beq.s	loc_36AC
+	beq.s	+
 	cmpi.w	#$41, d0
-	beq.s	loc_36AC
+	beq.s	+
 	cmpi.w	#$42, d0
-	bne.s	loc_36B0
-loc_36AC:
+	bne.s	++
++
 	move.w	#$81, d0
-loc_36B0:
-	move.w	d0, $16(a3)
-	move.l	4(a0), 4(a3)
-	move.w	#0, $26(a3)
-	move.w	#1, $28(a3)
++
+	move.w	d0, battle_anim(a3)
+	move.l	mappings(a0), mappings(a3)
+	move.w	#0, anim_frame_timer(a3)
+	move.w	#1, anim_timer_start(a3)
 	addq.w	#1, (Fight_action_steps).w
 	rts
+; ---------------------------------------------------------------
 
-; --------------------------------------------------------------
+
+; ---------------------------------------------------------------
 ; Object - Character Sprites in the map
-; --------------------------------------------------------------
+; ---------------------------------------------------------------
 Obj_MapCharacter:
 	tst.w	(Map_index).w
 	bne.s	+
